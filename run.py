@@ -1,4 +1,4 @@
-from controller.app import app
+from controller.app import app, set_data_manager, set_packet_processor
 from model.packet_processor import PacketProcessor
 from model.data_manager import DataManager
 from config.config import Config
@@ -12,11 +12,11 @@ def main():
         block_duration=Config.BLOCK_DURATION,
         ttl=Config.TTL
     )
-    # Start packet processor in a thread
+    set_data_manager(data_manager)
+    set_packet_processor(packet_processor)
     processor_thread = threading.Thread(target=packet_processor.start)
     processor_thread.daemon = True
     processor_thread.start()
-    # Run Flask app
     app.run(host='0.0.0.0', port=5000)
 
 if __name__ == '__main__':

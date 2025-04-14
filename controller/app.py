@@ -1,11 +1,18 @@
 from flask import Flask, render_template, jsonify, request
 from model.data_manager import DataManager
 from model.packet_processor import PacketProcessor
-import threading
 
 app = Flask(__name__, template_folder="../view/templates", static_folder="../view/static")
-data_manager = DataManager()
-packet_processor = PacketProcessor(data_manager)
+data_manager = None
+packet_processor = None
+
+def set_data_manager(dm):
+    global data_manager
+    data_manager = dm
+
+def set_packet_processor(pp):
+    global packet_processor
+    packet_processor = pp
 
 @app.route('/')
 def index():
@@ -66,10 +73,3 @@ def get_metrics():
         "avg_memory": (sum(packet_processor.memory_usages) / len(packet_processor.memory_usages)
                        if packet_processor.memory_usages else 0)
     })
-
-if __name__ == '__main__':
-    # Start packet processor in a separate thread
-    processor_thread = threading.Thread(target=packet_processor.start)
-    processor_thread.daemon = True
-    processor_thread.start()
-    app.run(host='0.0.0.0', port=5000)
