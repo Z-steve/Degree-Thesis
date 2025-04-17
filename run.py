@@ -1,4 +1,4 @@
-from controller.app import app, set_data_manager, set_packet_processor, set_scanner, data_manager
+from controller.app import app, set_data_manager, set_packet_processor, set_scanner
 from model.packet_processor import PacketProcessor
 from model.data_manager import DataManager
 from model.network_scanner import NetworkScanner
@@ -22,21 +22,27 @@ def restore_iptables():
     except subprocess.CalledProcessError as e:
         print(f"Error restoring iptables: {e}")
 
-def signal_handler(sig, frame):
-    print("\nCaught Ctrl+C, saving DNS expiration table and restoring iptables...")
-    try:
-        if data_manager:
-            data_manager.save_dns_expiration_table()
-            print("DNS expiration table saved.")
-    except Exception as e:
-        print(f"Error saving DNS expiration table: {e}")
-    restore_iptables()
-    sys.exit(0)
+def create_signal_handler(data_manager_instance):
+    def signal_handler(sig, frame):
+        print("\nCaught Ctrl+C, saving DNS expiration table and restoring iptables...")
+        if not data_manager_instance:
+            print("Error: data_manager_instance is None, cannot save DNS expiration table.")
+        else:
+            try:
+                print(f"Attempting to save DNS expiration table to {data_manager_instance.dns_expiration_file}")
+                print(f"DNS expiration table contents: {data_manager_instance.dns_expiration_table}")
+                data_manager_instance.save_dns_expiration_table()
+                print("DNS expiration table saved.")
+            except Exception as e:
+                print(f"Error saving DNS expiration table: {e}")
+        restore_iptables()
+        sys.exit(0)
+    return signal_handler
 
 def main():
-    signal.signal(signal.SIGINT, signal_handler)
-    clear_nfqueue_rules()
     data_manager_instance = DataManager(dns_expiration_file=Config.DNS_EXPIRATION_FILE)
+    signal.signal(signal.SIGINT, create_signal_handler(data_manager_instance))
+    clear_nfqueue_rules()
     packet_processor = PacketProcessor(
         data_manager_instance,
         block_threshold=Config.BLOCK_THRESHOLD,
@@ -51,7 +57,7 @@ def main():
     processor_thread = threading.Thread(target=packet_processor.start)
     processor_thread.daemon = True
     processor_thread.start()
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='127.0.0.1', port=5000)
 
 if __name__ == '__main__':
     main()

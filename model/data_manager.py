@@ -23,9 +23,15 @@ class DataManager:
         self.dns_expiration_file = dns_expiration_file
         self.load_dns_expiration_table()
 
+
     def save_dns_expiration_table(self):
-        with open(self.dns_expiration_file, 'wb') as f:
-            pickle.dump(self.dns_expiration_table, f)
+        try:
+            with open(self.dns_expiration_file, 'wb') as f:
+                pickle.dump(self.dns_expiration_table, f)
+            print(f"Saved DNS expiration table to {self.dns_expiration_file}")
+        except Exception as e:
+            print(f"Failed to save DNS expiration table to {self.dns_expiration_file}: {e}")
+            raise
 
     def load_dns_expiration_table(self):
         if os.path.exists(self.dns_expiration_file):
