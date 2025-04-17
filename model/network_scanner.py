@@ -59,7 +59,7 @@ class NetworkScanner:
 
     def get_blocked_ips(self):
         try:
-            from controller.app import data_manager  # Import here to avoid circular import
+            from controller.app import data_manager
             blocked_ips = data_manager.blocked_ips
             self.logger.debug(f"Blocked IPs retrieved: {blocked_ips}")
             return blocked_ips
@@ -95,20 +95,35 @@ class NetworkScanner:
                 continue
 
             with self.lock:
-                current_devices = self.devices.copy()
-                self.logger.debug(f"Before update, devices: {[ip for ip in current_devices.keys()]}")
+                # Create new devices dict with only live devices
+                new_devices = {}
+                # Always include detector
+                new_devices[self.detector_ip] = self.devices.get(self.detector_ip, NetworkDevice(self.detector_ip, self.detector_mac))
+                new_devices[self.detector_ip].is_gateway = True
+                new_devices[self.detector_ip].is_attacker = self.detector_ip in self.get_blocked_ips()
+
+                # Add or update live devices
                 for ip, mac in live_devices.items():
-                    if ip not in current_devices:
-                        current_devices[ip] = NetworkDevice(ip, mac)
-                        self.logger.debug(f"New device added: {ip} -> {mac}")
-                    else:
-                        current_devices[ip].mac = mac
-                        self.logger.debug(f"Existing device updated: {ip} -> {mac}")
-                    current_devices[ip].is_gateway = (ip == self.detector_ip)
-                    current_devices[ip].is_attacker = ip in self.get_blocked_ips()
-                    self.logger.info(f"Device updated: {ip} -> {mac}, is_attacker={current_devices[ip].is_attacker}")
-                self.devices = {ip: dev for ip, dev in current_devices.items()}
+                    if ip != self.detector_ip:  # Detector handled above
+                        if ip in self.devices:
+                            # Preserve existing device attributes
+                            new_devices[ip] = self.devices[ip]
+                            new_devices[ip].mac = mac
+                        else:
+                            new_devices[ip] = NetworkDevice(ip, mac)
+                        new_devices[ip].is_attacker = ip in self.get_blocked_ips()
+                        new_devices[ip].is_gateway = False
+                        self.logger.debug(f"Updated device: {ip} -> {mac}, is_attacker={new_devices[ip].is_attacker}")
+
+                # Log removed devices
+                removed_ips = set(self.devices.keys()) - set(new_devices.keys())
+                if removed_ips:
+                    self.logger.info(f"Removed devices no longer responding: {removed_ips}")
+
+                # Update devices
+                self.devices = new_devices
                 self.logger.debug(f"Devices after update: {[ip for ip in self.devices.keys()]}")
+
             time.sleep(120)
             for _ in range(12):
                 with self.lock:
