@@ -19,6 +19,7 @@ class DataManager:
         self.allowlisted_protocols = ['ICMP', 'SSH']
         self.blocked_ips = {}
         self.suspicious_count = {}
+        self.logs = []
         self.dns_expiration_file = dns_expiration_file
         self.load_dns_expiration_table()
 
@@ -37,24 +38,43 @@ class DataManager:
             pickle.dump(self.dns_expiration_table, f)
 
     def add_blocked_ip(self, ip, block_duration=1000):
+        from controller.app import scanner  # Import here to avoid circular import
         self.blocked_ips[ip] = time.time() + block_duration
+        self.add_log(f"Blocked IP {ip} until {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(self.blocked_ips[ip]))}")
+        if scanner:
+            scanner.update_attacker_status(ip)
 
     def remove_blocked_ip(self, ip):
+        from controller.app import scanner  # Import here to avoid circular import
         if ip in self.blocked_ips:
             del self.blocked_ips[ip]
+            self.add_log(f"Unblocked IP {ip}")
+            if scanner:
+                scanner.update_attacker_status(ip)
 
     def add_allowlisted_user(self, ip):
         if ip not in self.allowlisted_users:
             self.allowlisted_users.append(ip)
+            self.add_log(f"Added allowlisted user: {ip}")
 
     def remove_allowlisted_user(self, ip):
         if ip in self.allowlisted_users:
             self.allowlisted_users.remove(ip)
+            self.add_log(f"Removed allowlisted user: {ip}")
 
     def add_allowlisted_domain(self, domain):
         if domain not in self.allowlisted_domains:
             self.allowlisted_domains.append(domain)
+            self.add_log(f"Added allowlisted domain: {domain}")
 
     def remove_allowlisted_domain(self, domain):
         if domain in self.allowlisted_domains:
             self.allowlisted_domains.remove(domain)
+            self.add_log(f"Removed allowlisted domain: {domain}")
+
+    def add_log(self, message):
+        self.logs.append({
+            "timestamp": time.time(),
+            "message": message
+        })
+        self.logs = self.logs[-1000:]

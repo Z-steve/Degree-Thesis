@@ -1,4 +1,5 @@
-flask==2.3.3
+Flask==2.0.1
+scapy==2.4.5
 netfilterqueue==0.8.1
-scapy==2.5.0
-psutil==5.9.5
+dnspython==2.2.1
+psutil==5.9.0

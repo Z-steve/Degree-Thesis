@@ -3,59 +3,160 @@ function formatDate(timestamp) {
 }
 
 function updateDNSTable() {
+    if (window.location.pathname !== '/dns_table') return;
     fetch('/api/get_dns_table')
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) throw new Error(`DNS Table fetch failed: ${response.status}`);
+            return response.json();
+        })
         .then(data => {
             const tbody = document.querySelector('#dns-table tbody');
-            tbody.innerHTML = '';
-            for (const [key, expiry] of Object.entries(data)) {
-                const row = `<tr><td>${key}</td><td>${formatDate(expiry)}</td></tr>`;
-                tbody.innerHTML += row;
+            if (tbody) {
+                tbody.innerHTML = '';
+                for (const [key, expiry] of Object.entries(data)) {
+                    const row = `<tr><td>${key}</td><td>${formatDate(expiry)}</td></tr>`;
+                    tbody.innerHTML += row;
+                }
             }
-        });
+        })
+        .catch(error => console.error('Error updating DNS table:', error));
 }
 
 function updateBlockedIPs() {
+    if (window.location.pathname !== '/') return;
     fetch('/api/get_blocked_ips')
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) throw new Error(`Blocked IPs fetch failed: ${response.status}`);
+            return response.json();
+        })
         .then(data => {
             const tbody = document.querySelector('#blocked-ips tbody');
-            tbody.innerHTML = '';
-            for (const [ip, expiry] of Object.entries(data)) {
-                const row = `<tr><td>${ip}</td><td>${formatDate(expiry)}</td></tr>`;
-                tbody.innerHTML += row;
+            if (tbody) {
+                tbody.innerHTML = '';
+                for (const [ip, expiry] of Object.entries(data)) {
+                    const row = `<tr><td >${ip}</td><td style="padding-left: 200px;">${formatDate(expiry)}</td></tr>`;
+                    tbody.innerHTML += row;
+                }
             }
-        });
+        })
+        .catch(error => console.error('Error updating blocked IPs:', error));
+}
+
+function updateAllowlistedDomains() {
+    if (window.location.pathname !== '/') return;
+    fetch('/api/get_allowlisted_domains')
+        .then(response => {
+            if (!response.ok) throw new Error(`Allowlisted domains fetch failed: ${response.status}`);
+            return response.json();
+        })
+        .then(data => {
+            const ul = document.querySelector('#allowlisted-domains');
+            if (ul) {
+                ul.innerHTML = '';
+                data.forEach(domain => {
+                    ul.innerHTML += `<li>${domain}</li>`;
+                });
+            }
+        })
+        .catch(error => console.error('Error updating allowlisted domains:', error));
 }
 
 function updateAllowlistedUsers() {
+    if (window.location.pathname !== '/') return;
     fetch('/api/get_allowlisted_users')
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) throw new Error(`Allowlisted users fetch failed: ${response.status}`);
+            return response.json();
+        })
         .then(data => {
             const ul = document.querySelector('#allowlisted-users');
-            ul.innerHTML = '';
-            data.forEach(ip => {
-                ul.innerHTML += `<li>${ip}</li>`;
-            });
-        });
+            if (ul) {
+                ul.innerHTML = '';
+                data.forEach(ip => {
+                    ul.innerHTML += `<li>${ip}</li>`;
+                });
+            }
+        })
+        .catch(error => console.error('Error updating allowlisted users:', error));
 }
 
 function updateMetrics() {
+    if (window.location.pathname !== '/') return;
     fetch('/api/get_metrics')
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) throw new Error(`Metrics fetch failed: ${response.status}`);
+            return response.json();
+        })
         .then(data => {
-            document.querySelector('#packet-count').textContent = data.packet_count;
-            document.querySelector('#avg-latency').textContent = data.avg_latency.toFixed(6);
-            document.querySelector('#avg-cpu').textContent = data.avg_cpu.toFixed(2);
-            document.querySelector('#avg-memory').textContent = data.avg_memory.toFixed(2);
-        });
+            const packetCount = document.querySelector('#packet-count');
+            const avgLatency = document.querySelector('#avg-latency');
+            const avgCpu = document.querySelector('#avg-cpu');
+            const avgMemory = document.querySelector('#avg-memory');
+            if (packetCount) packetCount.textContent = data.packet_count;
+            if (avgLatency) avgLatency.textContent = data.avg_latency.toFixed(6);
+            if (avgCpu) avgCpu.textContent = data.avg_cpu.toFixed(2);
+            if (avgMemory) avgMemory.textContent = data.avg_memory.toFixed(2);
+        })
+        .catch(error => console.error('Error updating metrics:', error));
 }
 
+function updateLogs() {
+    if (window.location.pathname !== '/logs') return;
+    fetch('/api/get_logs')
+        .then(response => {
+            if (!response.ok) throw new Error(`Logs fetch failed: ${response.status}`);
+            return response.json();
+        })
+        .then(data => {
+            const tbody = document.querySelector('#logs-table tbody');
+            if (tbody) {
+                tbody.innerHTML = '';
+                data.forEach(log => {
+                    const row = `<tr><td>${formatDate(log.timestamp)}</td><td>${log.message}</td></tr>`;
+                    tbody.innerHTML += row;
+                });
+                // Scroll to bottom
+                const container = document.querySelector('.table-container');
+                if (container) container.scrollTop = container.scrollHeight;
+            }
+        })
+        .catch(error => console.error('Error updating logs:', error));
+}
+
+function updateDetectedIPs() {
+    if (window.location.pathname !== '/') return;
+    fetch('/api/get_topology')
+        .then(response => {
+            if (!response.ok) throw new Error(`Topology fetch failed: ${response.status}`);
+            return response.json();
+        })
+        .then(data => {
+            console.log('Detected IPs:', data);
+            const ul = document.querySelector('#detected-ips');
+            if (ul) {
+                ul.innerHTML = '';
+                data.forEach(device => {
+                    const status = device.is_gateway ? 'Gateway' : device.is_attacker ? 'Attacker' : 'Safe';
+                    const statusClass = device.is_attacker ? 'attacker-alert' : '';
+                    ul.innerHTML += `<li>${device.ip} (MAC: ${device.mac}, Status: <span class="${statusClass}">${status}</span>)</li>`;
+                });
+                if (data.length === 0) {
+                    ul.innerHTML = '<li>No devices detected</li>';
+                }
+            }
+        })
+        .catch(error => console.error('Error updating detected IPs:', error));
+    // Poll every 5 seconds for updates
+    setTimeout(updateDetectedIPs, 5000);
+}
+
+
 function executeCommand() {
+    if (window.location.pathname !== '/') return;
     const input = document.querySelector('#command-input').value.trim();
     const output = document.querySelector('#command-output');
     if (!input) {
-        output.textContent = 'Please enter a command';
+        if (output) output.textContent = 'Please enter a command';
         return;
     }
 
@@ -66,10 +167,17 @@ function executeCommand() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ip: args[0] })
         })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) throw new Error(`Block IP failed: ${response.status}`);
+                return response.json();
+            })
             .then(data => {
-                output.textContent = data.message;
+                if (output) output.textContent = data.message;
                 updateBlockedIPs();
+            })
+            .catch(error => {
+                if (output) output.textContent = `Error: ${error.message}`;
+                console.error('Error blocking IP:', error);
             });
     } else if (command === 'unblock_ip' && args.length === 1) {
         fetch('/api/unblock_ip', {
@@ -77,10 +185,17 @@ function executeCommand() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ip: args[0] })
         })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) throw new Error(`Unblock IP failed: ${response.status}`);
+                return response.json();
+            })
             .then(data => {
-                output.textContent = data.message;
+                if (output) output.textContent = data.message;
                 updateBlockedIPs();
+            })
+            .catch(error => {
+                if (output) output.textContent = `Error: ${error.message}`;
+                console.error('Error unblocking IP:', error);
             });
     } else if (command === 'add_allowlisted_user' && args.length === 1) {
         fetch('/api/add_allowlisted_user', {
@@ -88,26 +203,99 @@ function executeCommand() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ip: args[0] })
         })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) throw new Error(`Add allowlisted user failed: ${response.status}`);
+                return response.json();
+            })
             .then(data => {
-                output.textContent = data.message;
+                if (output) output.textContent = data.message;
                 updateAllowlistedUsers();
+            })
+            .catch(error => {
+                if (output) output.textContent = `Error: ${error.message}`;
+                console.error('Error adding allowlisted user:', error);
             });
-    } else {
-        output.textContent = 'Invalid command';
+    } else if (command === 'remove_allowlisted_user' && args.length === 1) {
+    fetch('/api/remove_allowlisted_user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ip: args[0] })
+    })
+        .then(response => {
+            if (!response.ok) throw new Error(`Remove allowlisted user failed: ${response.status}`);
+            return response.json();
+        })
+        .then(data => {
+            if (output) output.textContent = data.message;
+            updateAllowlistedUsers();
+        })
+        .catch(error => {
+            if (output) output.textContent = `Error: ${error.message}`;
+            console.error('Error removing allowlisted user:', error);
+        });
+    } else if (command === 'add_allowlisted_domain' && args.length === 1) {
+        fetch('/api/add_allowlisted_domain', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ domain: args[0] })
+        })
+            .then(response => {
+                if (!response.ok) throw new Error(`Add allowlisted domain failed: ${response.status}`);
+                return response.json();
+            })
+            .then(data => {
+                if (output) output.textContent = data.message;
+                updateAllowlistedDomains();
+            })
+            .catch(error => {
+                if (output) output.textContent = `Error: ${error.message}`;
+                console.error('Error adding allowlisted domain:', error);
+            });
+    } else if (command === 'remove_allowlisted_domain' && args.length === 1) {
+        fetch('/api/remove_allowlisted_domain', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ domain: args[0] })
+        })
+            .then(response => {
+                if (!response.ok) throw new Error(`Remove allowlisted domain failed: ${response.status}`);
+                return response.json();
+            })
+            .then(data => {
+                if (output) output.textContent = data.message;
+                updateAllowlistedDomains();
+            })
+            .catch(error => {
+                if (output) output.textContent = `Error: ${error.message}`;
+                console.error('Error removing allowlisted domain:', error);
+            });
+    }
+    else {
+        if (output) output.textContent = 'Invalid command';
     }
 }
 
-// Update dashboard every 5 seconds
-setInterval(() => {
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('Page loaded:', window.location.pathname);
+    const canvas = document.getElementById('network-canvas');
+
+    // Initial updates
+    updateAllowlistedDomains();
+    updateDetectedIPs();
     updateDNSTable();
     updateBlockedIPs();
     updateAllowlistedUsers();
     updateMetrics();
-}, 5000);
+    updateLogs();
 
-// Initial update
-updateDNSTable();
-updateBlockedIPs();
-updateAllowlistedUsers();
-updateMetrics();
+    // Periodic updates
+    setInterval(() => {
+    updateAllowlistedDomains
+    updateDetectedIPs();
+        updateDNSTable();
+        updateBlockedIPs();
+        updateAllowlistedUsers();
+        updateMetrics();
+        updateLogs();
+    }, 5000);
+});

@@ -19,6 +19,7 @@ class PacketProcessor:
         self.start_time = time.time()
         self.queue = netfilterqueue.NetfilterQueue()
         self.running = False
+        self.lock = threading.Lock()
 
     def set_iptables_rule(self):
         try:
@@ -114,23 +115,25 @@ class PacketProcessor:
         return False
 
     def calculate_metrics(self, start_time):
-        end = time.time()
-        latency = end - start_time
-        self.latencies.append(latency)
-        self.cpu_usages.append(psutil.cpu_percent())
-        self.memory_usages.append(psutil.virtual_memory().percent)
-        if self.packet_count % 10000 == 0:
-            avg_latency = sum(self.latencies) / len(self.latencies) if self.latencies else 0
-            avg_cpu = sum(self.cpu_usages) / len(self.cpu_usages) if self.cpu_usages else 0
-            avg_memory = sum(self.memory_usages) / len(self.memory_usages) if self.memory_usages else 0
-            print(f"Processed {self.packet_count} packets.")
-            print(f"Average latency: {avg_latency:.6f}s, CPU: {avg_cpu:.2f}%, Memory: {avg_memory:.2f}%")
-            self.latencies.clear()
-            self.cpu_usages.clear()
-            self.memory_usages.clear()
+        with self.lock:
+            end = time.time()
+            latency = end - start_time
+            self.latencies.append(latency)
+            self.cpu_usages.append(psutil.cpu_percent())
+            self.memory_usages.append(psutil.virtual_memory().percent)
+            if self.packet_count % 10000 == 0:
+                avg_latency = sum(self.latencies) / len(self.latencies) if self.latencies else 0
+                avg_cpu = sum(self.cpu_usages) / len(self.cpu_usages) if self.cpu_usages else 0
+                avg_memory = sum(self.memory_usages) / len(self.memory_usages) if self.memory_usages else 0
+                print(f"Processed {self.packet_count} packets.")
+                print(f"Average latency: {avg_latency:.6f}s, CPU: {avg_cpu:.2f}%, Memory: {avg_memory:.2f}%")
+                self.latencies.clear()
+                self.cpu_usages.clear()
+                self.memory_usages.clear()
 
     def process_packet(self, packet):
-        self.packet_count += 1
+        with self.lock:
+            self.packet_count += 1
         start = time.time()
         scapy_packet = scapy.IP(packet.get_payload())
         current_time = time.time()
@@ -161,6 +164,7 @@ class PacketProcessor:
             else:
                 src_ip = self.get_source_ip(scapy_packet)
                 print(f"Reverse-DNS query from {src_ip} blocked")
+                self.data_manager.add_log(f"Reverse-DNS query from {src_ip} blocked")
                 packet.drop()
             verdict_given = True
 
@@ -176,6 +180,7 @@ class PacketProcessor:
 
             if src_ip in self.data_manager.blocked_ips:
                 print(f"Blocked IP {src_ip} to {dst_ip}")
+                self.data_manager.add_log(f"Blocked IP {src_ip} to {dst_ip}")
                 packet.drop()
                 verdict_given = True
 
@@ -196,6 +201,14 @@ class PacketProcessor:
                 packet.accept()
                 verdict_given = True
 
+            # Allow HTTP/HTTPS for all IPs
+            elif scapy_packet.haslayer(scapy.TCP) and (
+                  scapy_packet[scapy.TCP].dport in [80, 443] or scapy_packet[scapy.TCP].sport in [80, 443]):
+                print(f"Allowed HTTP/HTTPS from {src_ip} to {dst_ip}")
+                self.data_manager.add_log(f"Allowed HTTP/HTTPS from {src_ip} to {dst_ip}")
+                packet.accept()
+                verdict_given = True
+
             else:
                 if src_ip not in self.data_manager.suspicious_count:
                     self.data_manager.suspicious_count[src_ip] = 0
@@ -203,10 +216,12 @@ class PacketProcessor:
 
                 if self.data_manager.suspicious_count[src_ip] >= self.block_threshold:
                     print(f"Blocking IP {src_ip} after {self.data_manager.suspicious_count[src_ip]} suspicious connections")
+                    self.data_manager.add_log(f"Blocking IP {src_ip} after {self.data_manager.suspicious_count[src_ip]} suspicious connections")
                     self.data_manager.add_blocked_ip(src_ip, self.block_duration)
                     packet.drop()
                 else:
                     print(f"Suspicious connection from {src_ip} to {dst_ip}, count: {self.data_manager.suspicious_count[src_ip]}")
+                    self.data_manager.add_log(f"Suspicious connection from {src_ip} to {dst_ip}, count: {self.data_manager.suspicious_count[src_ip]}")
                     packet.accept()
                 verdict_given = True
 
