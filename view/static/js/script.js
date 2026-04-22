@@ -153,19 +153,20 @@ function updateDetectedIPs() {
 
 function executeCommand() {
     if (window.location.pathname !== '/') return;
-    const input = document.querySelector('#command-input').value.trim();
+    const command = document.querySelector('#command-select').value;
+    const target = document.querySelector('#command-target').value.trim();
     const output = document.querySelector('#command-output');
-    if (!input) {
-        if (output) output.textContent = 'Please enter a command';
+
+    if (!target) {
+        if (output) output.textContent = 'Please enter a target IP or Domain';
         return;
     }
 
-    const [command, ...args] = input.split(' ');
-    if (command === 'block_ip' && args.length === 1) {
+    if (command === 'block_ip') {
         fetch('/api/block_ip', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ip: args[0] })
+            body: JSON.stringify({ ip: target })
         })
             .then(response => {
                 if (!response.ok) throw new Error(`Block IP failed: ${response.status}`);
@@ -179,11 +180,11 @@ function executeCommand() {
                 if (output) output.textContent = `Error: ${error.message}`;
                 console.error('Error blocking IP:', error);
             });
-    } else if (command === 'unblock_ip' && args.length === 1) {
+    } else if (command === 'unblock_ip') {
         fetch('/api/unblock_ip', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ip: args[0] })
+            body: JSON.stringify({ ip: target })
         })
             .then(response => {
                 if (!response.ok) throw new Error(`Unblock IP failed: ${response.status}`);
@@ -197,11 +198,11 @@ function executeCommand() {
                 if (output) output.textContent = `Error: ${error.message}`;
                 console.error('Error unblocking IP:', error);
             });
-    } else if (command === 'add_allowlisted_user' && args.length === 1) {
+    } else if (command === 'add_allowlisted_user') {
         fetch('/api/add_allowlisted_user', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ip: args[0] })
+            body: JSON.stringify({ ip: target })
         })
             .then(response => {
                 if (!response.ok) throw new Error(`Add allowlisted user failed: ${response.status}`);
@@ -215,11 +216,11 @@ function executeCommand() {
                 if (output) output.textContent = `Error: ${error.message}`;
                 console.error('Error adding allowlisted user:', error);
             });
-    } else if (command === 'remove_allowlisted_user' && args.length === 1) {
+    } else if (command === 'remove_allowlisted_user') {
     fetch('/api/remove_allowlisted_user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ip: args[0] })
+        body: JSON.stringify({ ip: target })
     })
         .then(response => {
             if (!response.ok) throw new Error(`Remove allowlisted user failed: ${response.status}`);
@@ -233,11 +234,11 @@ function executeCommand() {
             if (output) output.textContent = `Error: ${error.message}`;
             console.error('Error removing allowlisted user:', error);
         });
-    } else if (command === 'add_allowlisted_domain' && args.length === 1) {
+    } else if (command === 'add_allowlisted_domain') {
         fetch('/api/add_allowlisted_domain', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ domain: args[0] })
+            body: JSON.stringify({ domain: target })
         })
             .then(response => {
                 if (!response.ok) throw new Error(`Add allowlisted domain failed: ${response.status}`);
@@ -251,11 +252,11 @@ function executeCommand() {
                 if (output) output.textContent = `Error: ${error.message}`;
                 console.error('Error adding allowlisted domain:', error);
             });
-    } else if (command === 'remove_allowlisted_domain' && args.length === 1) {
+    } else if (command === 'remove_allowlisted_domain') {
         fetch('/api/remove_allowlisted_domain', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ domain: args[0] })
+            body: JSON.stringify({ domain: target })
         })
             .then(response => {
                 if (!response.ok) throw new Error(`Remove allowlisted domain failed: ${response.status}`);
@@ -269,9 +270,6 @@ function executeCommand() {
                 if (output) output.textContent = `Error: ${error.message}`;
                 console.error('Error removing allowlisted domain:', error);
             });
-    }
-    else {
-        if (output) output.textContent = 'Invalid command';
     }
 }
 

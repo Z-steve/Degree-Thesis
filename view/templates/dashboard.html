@@ -47,23 +47,21 @@
             <!-- Execute Command Card -->
             <div class="card" style="grid-column: 1 / -1;">
                 <h3>Command Center</h3>
-                <div class="command-area">
-                    <input type="text" id="command-input" placeholder="e.g., block_ip 192.168.100.4">
-                    <button onclick="executeCommand()">Execute</button>
+                <div class="command-area" style="flex-direction: column; gap: 1rem;">
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                        <select id="command-select" style="flex: 1; min-width: 200px; background-color: rgba(0, 0, 0, 0.3); border: 1px solid var(--border-color); color: var(--text-main); padding: 0.75rem 1rem; border-radius: 6px; font-family: 'Inter', sans-serif; font-size: 0.95rem; outline: none; transition: border-color 0.3s ease;">
+                            <option value="block_ip" style="background: var(--bg-card);">Block IP</option>
+                            <option value="unblock_ip" style="background: var(--bg-card);">Unblock IP</option>
+                            <option value="add_allowlisted_user" style="background: var(--bg-card);">Add Allowlisted User (IP)</option>
+                            <option value="remove_allowlisted_user" style="background: var(--bg-card);">Remove Allowlisted User (IP)</option>
+                            <option value="add_allowlisted_domain" style="background: var(--bg-card);">Add Allowlisted Domain</option>
+                            <option value="remove_allowlisted_domain" style="background: var(--bg-card);">Remove Allowlisted Domain</option>
+                        </select>
+                        <input type="text" id="command-target" placeholder="Enter IP or Domain..." style="flex: 2; min-width: 200px;">
+                        <button onclick="executeCommand()">Execute</button>
+                    </div>
                 </div>
                 <p id="command-output"></p>
-                
-                <div id="possible-commands">
-                    <h4>Available Commands:</h4>
-                    <ul>
-                        <li><code>block_ip &lt;IP&gt;</code> - Block an IP address</li>
-                        <li><code>unblock_ip &lt;IP&gt;</code> - Unblock an IP address</li>
-                        <li><code>add_allowlisted_user &lt;IP&gt;</code> - Add an IP to the allowlist (trusted internal devices)</li>
-                        <li><code>remove_allowlisted_user &lt;IP&gt;</code> - Remove an IP from the allowlist</li>
-                        <li><code>add_allowlisted_domain &lt;IP&gt;</code> - Add an external IP to the allowlist (expected reverse DNS)</li>
-                        <li><code>remove_allowlisted_domain &lt;IP&gt;</code> - Remove an external IP from the allowlist</li>
-                    </ul>
-                </div>
             </div>
 
             <!-- Blocked IPs Card -->
