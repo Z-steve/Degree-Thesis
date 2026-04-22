@@ -20,6 +20,7 @@ class DataManager:
         self.blocked_ips = {}
         self.suspicious_count = {}
         self.logs = []
+        self.attack_history = []
         self.dns_expiration_file = dns_expiration_file
         self.load_dns_expiration_table()
 
@@ -43,10 +44,20 @@ class DataManager:
         with open(self.dns_expiration_file, 'wb') as f:
             pickle.dump(self.dns_expiration_table, f)
 
-    def add_blocked_ip(self, ip, block_duration=1000):
+    def add_blocked_ip(self, ip, block_duration=1000, target_ip="Unknown", reason="Manual block"):
         from controller.app import scanner  # Import here to avoid circular import
         self.blocked_ips[ip] = time.time() + block_duration
         self.add_log(f"Blocked IP {ip} until {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(self.blocked_ips[ip]))}")
+        
+        self.attack_history.insert(0, {
+            "timestamp": time.time(),
+            "attacker_ip": ip,
+            "target_ip": target_ip,
+            "reason": reason,
+            "expires_at": self.blocked_ips[ip]
+        })
+        self.attack_history = self.attack_history[:1000] # Keep last 1000
+        
         if scanner:
             scanner.update_attacker_status(ip)
 

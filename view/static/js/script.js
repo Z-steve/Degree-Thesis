@@ -138,7 +138,8 @@ function updateDetectedIPs() {
                 data.forEach(device => {
                     const status = device.is_gateway ? 'Gateway' : device.is_attacker ? 'Attacker' : 'Safe';
                     const statusClass = device.is_attacker ? 'attacker-alert' : '';
-                    ul.innerHTML += `<li>${device.ip} (MAC: ${device.mac}, Status: <span class="${statusClass}">${status}</span>)</li>`;
+                    const boxClass = device.is_attacker ? 'attacker-box' : '';
+                    ul.innerHTML += `<li class="${boxClass}">${device.ip} (MAC: ${device.mac}, Status: <span class="${statusClass}">${status}</span>)</li>`;
                 });
                 if (data.length === 0) {
                     ul.innerHTML = '<li>No devices detected</li>';
@@ -148,6 +149,32 @@ function updateDetectedIPs() {
         .catch(error => console.error('Error updating detected IPs:', error));
     // Poll every 5 seconds for updates
     setTimeout(updateDetectedIPs, 5000);
+}
+
+function updateAttackHistory() {
+    if (window.location.pathname !== '/attacks') return;
+    fetch('/api/get_attack_history')
+        .then(response => {
+            if (!response.ok) throw new Error(`Attack history fetch failed: ${response.status}`);
+            return response.json();
+        })
+        .then(data => {
+            const tbody = document.querySelector('#attacks-table tbody');
+            if (tbody) {
+                tbody.innerHTML = '';
+                data.forEach(attack => {
+                    const row = `<tr>
+                        <td>${formatDate(attack.timestamp)}</td>
+                        <td class="attacker-alert">${attack.attacker_ip}</td>
+                        <td>${attack.target_ip}</td>
+                        <td>${attack.reason}</td>
+                        <td>${formatDate(attack.expires_at)}</td>
+                    </tr>`;
+                    tbody.innerHTML += row;
+                });
+            }
+        })
+        .catch(error => console.error('Error updating attack history:', error));
 }
 
 
@@ -285,6 +312,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateAllowlistedUsers();
     updateMetrics();
     updateLogs();
+    updateAttackHistory();
 
     // Periodic updates
     setInterval(() => {
@@ -295,5 +323,6 @@ document.addEventListener('DOMContentLoaded', () => {
         updateAllowlistedUsers();
         updateMetrics();
         updateLogs();
+        updateAttackHistory();
     }, 5000);
 });

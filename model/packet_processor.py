@@ -228,7 +228,7 @@ class PacketProcessor:
                 if self.data_manager.suspicious_count[src_ip] >= self.block_threshold:
                     print(f"Blocking IP {src_ip} after {self.data_manager.suspicious_count[src_ip]} suspicious connections")
                     self.data_manager.add_log(f"Blocking IP {src_ip} after {self.data_manager.suspicious_count[src_ip]} suspicious connections")
-                    self.data_manager.add_blocked_ip(src_ip, self.block_duration)
+                    self.data_manager.add_blocked_ip(src_ip, self.block_duration, target_ip=dst_ip, reason="Suspicious connection threshold exceeded")
                     packet.drop()
                 else:
                     print(f"Suspicious connection from {src_ip} to {dst_ip}, count: {self.data_manager.suspicious_count[src_ip]}")

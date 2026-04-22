@@ -29,6 +29,10 @@ def index():
 def dns_table():
     return render_template('dnsexpirationtable.html')
 
+@app.route('/attacks')
+def attacks():
+    return render_template('attacks.html')
+
 @app.route('/logs')
 def logs():
     return render_template('logs.html')
@@ -40,6 +44,10 @@ def about():
 @app.route('/api/get_dns_table', methods=['GET'])
 def get_dns_table():
     return jsonify(data_manager.dns_expiration_table)
+
+@app.route('/api/get_attack_history', methods=['GET'])
+def get_attack_history():
+    return jsonify(data_manager.attack_history)
 
 @app.route('/api/block_ip', methods=['POST'])
 def block_ip():

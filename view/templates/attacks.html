@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>System Logs - SDS</title>
+    <title>Attacks History - SDS</title>
     <link rel="stylesheet" href="/static/css/dashboard.css">
     <script src="/static/js/jquery.js" defer></script>
     <script src="/static/js/script.js" defer></script>
@@ -18,27 +18,30 @@
         <ul class="nav-links">
             <li><a href="/">Dashboard</a></li>
             <li><a href="/dns_table">DNS Expiration</a></li>
-            <li><a href="/attacks">Attacks History</a></li>
-            <li><a href="/logs" class="active">System Logs</a></li>
+            <li><a href="/attacks" class="active">Attacks History</a></li>
+            <li><a href="/logs">System Logs</a></li>
             <li><a href="/about">About</a></li>
         </ul>
     </nav>
 
     <main class="main-content">
         <div class="page-header">
-            <h1>System Logs</h1>
+            <h1>Attacks History</h1>
         </div>
         
         <div class="dashboard-grid">
             <div class="card" style="grid-column: 1 / -1;">
-                <h3>Event & Alert Logs</h3>
-                <p>Real-time stream of system events, detection alerts, and blocked connection attempts.</p>
+                <h3>Blocked Attackers</h3>
+                <p>History of automated block events with details on target IP and reason.</p>
                 <div class="table-container">
-                    <table id="logs-table">
+                    <table id="attacks-table">
                         <thead>
                             <tr>
                                 <th style="width: 200px;">Timestamp</th>
-                                <th>Message</th>
+                                <th>Attacker IP</th>
+                                <th>Target IP</th>
+                                <th>Reason</th>
+                                <th>Expires At</th>
                             </tr>
                         </thead>
                         <tbody></tbody>

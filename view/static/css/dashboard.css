@@ -177,6 +177,17 @@ body {
     word-break: break-all;
 }
 
+.attacker-box {
+    background: rgba(239, 68, 68, 0.15) !important;
+    border-left: 3px solid var(--danger) !important;
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.3);
+}
+
+.attacker-alert {
+    color: var(--danger);
+    font-weight: bold;
+}
+
 /* Scrollbars */
 ::-webkit-scrollbar {
     width: 6px;

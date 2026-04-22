@@ -1,0 +1,143 @@
+Considering enterprise network security, an imperative question comes up: why is it so impor-
+tant to introduce a DNS-based detection mechanism within our internal infrastruc-
+ture? This is a significant aspect of our approach to handling internal threats and providing
+high-end network security. Hence, interpreting the pertinence of such measures is central to dealing
+with the challenges of internal threats and ensuring robust network security. A DNS-based
+detection algorithm is crucial for securing internal networks by identifying and neutralizing
+potential breaches. It provides an essential layer of defense against both internal and external
+threats, significantly enhancing the organization’s security posture. This approach has become
+a key advancement in detecting and preventing network scanning attempts and attacks.
+As previously discussed in Chapter 3, traditional methods like signature-based and behaviorbased
+detection have been widely used to identify malicious activities. In spite of that, these
+methods are not without downsides, especially in situations where the attackers use new techniques,
+obfuscation, or stealth attacks that do not fit into the established patterns.
+Tackling the problem of network scanner detection is quite a challenge due to the attackers
+using advanced evasion techniques for getting through the detection systems. A frequent trick
+that attackers adopt is to cut down the scanning rate drastically, for instance, conducting a
+scan at a rate slower than one per minute. Such a low scanning frequency can be a good way
+to escape detection from many behavior-based algorithms that do not take into account such
+low-frequency activities as a scan, but rather consider them as normal background noise. These
+algorithms generally focus on traffic patterns and thresholds to recognize suspicious behavior,
+and slow scans can easily be mistaken for normal or benign traffic. Consequently, the detection
+systems may not be triggered to send alerts, or even if they do, the activity may be considered
+harmless, thus providing the attackers with a green light to obtain information about the network
+or systems without the risk of being detected.
+On the other hand, DNS-based detection brings in a more dynamic and proactive perspective
+by taking advantage of the fact that DNS traffic is ubiquitous and essential in most modern
+networks.
+DNS detection techniques are based on the fact that scanning activities can be uniquely identified
+by correlating DNS queries with connection attempts. For example, Whyte et al. [29]
+uploaded their method to detect network worms by linking requests to preceding DNS queries.
+This approach treats a connection without prior DNS activity as anomalous, which is a very
+effective way of finding network worms that do not conduct DNS lookups before establishing
+connections.
+In the same way, Ahmad et al.’s NEDAC (NEtwork and DAta link layer Countermeasure) approach
+[30] is to a certain extent sending such DNS activities and marking those new connections
+when there is no preceding DNS query. NEDAC employs a threshold-based tactic where the
+nonexistence of a DNS lookup before multiple connection attempts is considered suspicious, and
+it may be a sign of the propagation of worms.
+However, both approaches do not take into consideration the diminishing of Time-To-Live (TTL)
+values in the DNS responses, which is one of the main components in minimizing the false negatives
+when detecting network scanners. Usually, TTL values of DNS responses are fixed for
+a long period of time, i.e. 24 hours, which gives a machine the opportunity to gather a big
+DNS cache of records that map many internal and external addresses. Such a large cache can
+be exploited by attackers: if they compromise a machine with an extensive DNS cache, they
+can conduct scans from this machine on the IP addresses stored in the cache without triggering
+detection systems that do not monitor DNS cache activity.
+The proposed method uses one of the TCP/IP networks’ main features: for a typical communication
+usually starting from a local network machine to a remote IP address, there must be a
+previous DNS query to get the IP address itself (think of resolving a domain name). Scanning
+is the term used to describe a connection that does not go through this process.
+Scanners and network worms, in fact, are usually engaged in scanning IP blocks, a technique
+whereby they send a probe or exploit data packets to a range of randomly selected IP addresses
+within the targeted network space without prior DNS lookups. This method, called random
+block scanning [32], requires selecting IP addresses randomly within a particular block or
+range. Attackers exploit this to actively investigate a whole network segment to locate hosts,
+services, and possible vulnerabilities. Random block scanning is one of the most reliable methods
+for detecting unprotected or improperly configured devices. This process usually kicks off with
+the picking of a base IP address and a subnet mask, which together define the set of valid IP
+addresses within the targeted block. Consider an IPv4 that consists of a 32-bit space address:
+an attacker can find a /24 subnet, which allows them to scan up to 256 IP addresses. The
+scanner then creates a list of IP addresses within this range and transmits probe packets to the
+addresses, analyzing the responses to detect active hosts and services. This methodology can
+be applied with the help of automation tools like Nmap, which have the capabilities to execute
+detailed scans of large IP ranges.
+Furthermore, according to Jafar Haadi Jafrian et al. in their research paper ”Detecting Network
+Scanning Through Monitoring and Manipulation of DNS Traffic” [31], the relevant DNS
+record must still be valid (i.e., not expired) during the connection setup, as its TTL dictates so.
+Therefore, reducing the TTL value is crucial because if a machine still holds an unexpired DNS
+record for an IP address, a scanner operating from that machine (compromised) could target the
+IP without being detected. This is because the scanner would be using the cached DNS record,
+as the compromised machine had performed a DNS lookup previously and stored the records,
+thus avoiding any new DNS queries that might be monitored. By shortening the duration for
+which DNS records are cached, it is possible to minimize the likelihood of a scanner utilizing
+these entries to perform scans on IP addresses stored in the cache.
+Consequently, to enhance detection accuracy and prevent evasion, Jafar Haadi Jafrian et al.
+introduced a system in their research, called SDS (scan-detection-system), that intercepts
+DNS responses, reduces the TTL values of these responses to shorter durations, such as 60 to
+300 seconds, and mandates that all connection attempts (by observing, for example, a TCP
+SYN segment, the first UDP datagram, the first ICMP packet) start with a valid DNS query.
+Any connections with no or expired preceding DNS lookup are treated as possible scans, which
+can be either recorded for further investigation or denied, depending on the network’s security
+policies.
+Moreover, to distinguish legitimate and malicious network traffic, it is possible to keep a list,
+configured during the setup phase, of allowed IP addresses that are excluded from the standard
+security policy to make sure that the essential services and internal communication (like mail
+servers) are not wrongly flagged. A connection attempt from a machine to a non-allowlisted IP
+without a prior DNS query is marked as a potential scan.
+The SDS are strategically positioned at network boundaries, such as the entry points of LANs
+or VLANs (see Figure 29).
+The decentralized architecture of this system, with each subnet having its own SDS units that
+function independently, makes it more scalable and fault-tolerant. Thus, it can be deployed in
+simple or complex networks of different sizes.
+Below is the SDS algorithm presented in pseudocode
+These are the main features of the SDS algorithm:
+• DNS response manipulation: SDS intercepts DNS responses destined for internal machines,
+and it modifies the TTL values (denoted by  ) of all type-A DNS Resource Records
+(RRs) for IPv4 to short durations (e.g., 60-300 seconds). Then, the SDS recalculates the
+UDP header checksum and forwards the DNS response. In this way, the SDS ensures that
+machines cache only the most recent DNS records, thus preventing the use of outdated
+cached IP addresses for scanning.
+• Detection of unauthorized connections: The SDS system detects outbound internal
+scans targeting external IP addresses (local-to-remote scans). It maintains a hash table of
+DNS responses, where the key is a combination of the source and destination IPs (IPs ||
+IPd) and the value includes their expiration times plus the clock timestamp. The system
+then verifies if the connection attempt was preceded by a valid DNS lookup within the
+adjusted period. Connections that lack a corresponding recent DNS query are flagged as
+potential scans.
+• Local processing and scalability: SDS operates within the local subnet (LAN/VLAN)
+without requiring global clock synchronization. Each SDS device is responsible for its own
+subnet, enhancing scalability and simplifying deployment.
+• Flexible response actions: Upon detecting a scan, the SDS can either drop the connection,
+log it for further inspection, or both, based on predefined security policies. It also
+allows for additional actions such as denylisting or quarantining the scanning machine if
+required.
+Introducing an SDS device that implements the aforementioned algorithm into an enterprise
+network infrastructure is crucial for several key reasons:
+• Detection of malicious internal activity: internal users, whether employees or possibly infected
+machines, could represent a massive security threat. These insiders could conduct
+a network scan intentionally for vulnerabilities or sensitive information. An internally focused
+DNS-based detection algorithm can identify abnormal behaviors indicative of scanning
+activities, such as a connection attempt without a clear purpose, by monitoring DNS
+queries and correlating them with connection attempts. This is crucial for blocking unauthorized
+access and recognizing possible internal dangers in time before they grow into
+more serious security incidents.
+• Identifying compromised devices: devices that are part of the network can be broken into
+and used as the initial place for the next attack. A machine that has been hacked can be
+set to scan other internal systems or even external networks. DNS-based detection can
+help identify such activities by noting connections that occur without a prior DNS query,
+which is not the case with normal traffic. Through this, security teams are able to quickly
+cut off and fix the compromised devices, thereby limiting the chance of data breaches and
+other attacks.
+Preventing external threats and reducing attack surface: scans that are initiated internally
+can often very well be a sign of the possibility of attacks on external targets. By detection
+and mitigation of such activities, organizations can prevent their networks from being
+used as a launch pad for attacks on other entities, thus reducing their own liability and
+preserving their reputation. This is particularly vital in environments where compliance
+with regulatory requirements is strict.
+• Complementing other security measures: DNS-based detection algorithms do work well
+with other security measures like firewalls, several detection algorithms implemented on
+intrusion detection and prevention systems, and endpoint protection. While the other
+tools are critical, they may not always be able to identify threats that come from inside
+the network. A DNS-based method takes a different angle by looking at the first steps of
+communication, which are DNS lookups, and thus provides another security layer.
