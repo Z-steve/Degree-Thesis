@@ -23,8 +23,19 @@ class PacketProcessor:
 
     def set_iptables_rule(self):
         try:
-            subprocess.run(['iptables', '-I', 'FORWARD', '-j', 'NFQUEUE', '--queue-num', '0'], check=True)
-            print("iptables rule added successfully.")
+            # Clear existing general rule if any
+            subprocess.run(['iptables', '-D', 'FORWARD', '-j', 'NFQUEUE', '--queue-num', '0'], stderr=subprocess.DEVNULL, check=False)
+            
+            # Send all DNS traffic to NFQUEUE
+            subprocess.run(['iptables', '-I', 'FORWARD', '1', '-p', 'udp', '--sport', '53', '-j', 'NFQUEUE', '--queue-num', '0'], check=True)
+            subprocess.run(['iptables', '-I', 'FORWARD', '2', '-p', 'tcp', '--sport', '53', '-j', 'NFQUEUE', '--queue-num', '0'], check=True)
+            subprocess.run(['iptables', '-I', 'FORWARD', '3', '-p', 'udp', '--dport', '53', '-j', 'NFQUEUE', '--queue-num', '0'], check=True)
+            subprocess.run(['iptables', '-I', 'FORWARD', '4', '-p', 'tcp', '--dport', '53', '-j', 'NFQUEUE', '--queue-num', '0'], check=True)
+            
+            # Send all NEW connections to NFQUEUE
+            subprocess.run(['iptables', '-I', 'FORWARD', '5', '-m', 'conntrack', '--ctstate', 'NEW', '-j', 'NFQUEUE', '--queue-num', '0'], check=True)
+            
+            print("iptables state-tracking rules added successfully.")
         except subprocess.CalledProcessError as e:
             print(f"Failed to add iptables rule: {e}")
 
