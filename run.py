@@ -9,6 +9,49 @@ import subprocess
 import sys
 import argparse
 import time
+import builtins
+
+try:
+    import readline
+except ImportError:
+    readline = None
+
+
+class StickyConsole:
+    def __init__(self, prompt="sds> "):
+        self.prompt = prompt
+        self._orig_print = builtins.print
+        self._lock = threading.Lock()
+
+    def install(self):
+        builtins.print = self._print_hook
+
+    def uninstall(self):
+        builtins.print = self._orig_print
+
+    def _print_hook(self, *args, **kwargs):
+        """Redraw prompt after any background print so command line stays visible."""
+        sep = kwargs.get("sep", " ")
+        end = kwargs.get("end", "\n")
+        message = sep.join(str(a) for a in args)
+        with self._lock:
+            buf = ""
+            if readline is not None:
+                try:
+                    buf = readline.get_line_buffer()
+                except Exception:
+                    buf = ""
+
+            sys.stdout.write("\r\033[K")
+            sys.stdout.write(message + end)
+            sys.stdout.write(self.prompt + buf)
+            sys.stdout.flush()
+
+            if readline is not None:
+                try:
+                    readline.redisplay()
+                except Exception:
+                    pass
 
 def clear_nfqueue_rules():
     try:
@@ -189,9 +232,12 @@ def main():
     if args.mode == "web":
         app.run(host=args.web_host, port=args.web_port)
     else:
+        sticky_console = StickyConsole(prompt="sds> ")
+        sticky_console.install()
         try:
             run_cli_console(data_manager_instance, packet_processor)
         finally:
+            sticky_console.uninstall()
             if scanner:
                 scanner.stop_scan()
             data_manager_instance.save_dns_expiration_table()
