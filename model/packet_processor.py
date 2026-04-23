@@ -5,6 +5,7 @@ import threading
 import psutil
 import socket
 import time
+import ipaddress
 
 class PacketProcessor:
     def __init__(self, data_manager, block_threshold=100, block_duration=1000, ttl=300):
@@ -20,6 +21,17 @@ class PacketProcessor:
         self.queue = netfilterqueue.NetfilterQueue()
         self.running = False
         self.lock = threading.Lock()
+        
+        self.vpn_networks = []
+        try:
+            with open('ipv4VPNs.txt', 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        self.vpn_networks.append(ipaddress.IPv4Network(line))
+            print(f"Loaded {len(self.vpn_networks)} VPN subnets.")
+        except FileNotFoundError:
+            print("ipv4VPNs.txt not found. VPN blocking disabled.")
 
     def set_iptables_rule(self):
         try:
@@ -212,29 +224,62 @@ class PacketProcessor:
                 packet.accept()
                 verdict_given = True
 
+            if not verdict_given:
+                is_vpn = False
+                try:
+                    dst_addr = ipaddress.IPv4Address(dst_ip)
+                    for net in self.vpn_networks:
+                        if dst_addr in net:
+                            is_vpn = True
+                            break
+                except Exception:
+                    pass
+
+                if is_vpn:
+                    print(f"VPN Connection Blocked: {src_ip} -> {dst_ip}")
+                    self.data_manager.add_log(f"VPN Blocked: {src_ip} -> {dst_ip}")
+                    self.data_manager.add_blocked_ip(src_ip, self.block_duration, target_ip=dst_ip, reason="VPN Usage Detected")
+                    packet.drop()
+                    verdict_given = True
+
             # Allow HTTP/HTTPS for all IPs
-            elif scapy_packet.haslayer(scapy.TCP) and (
+            if not verdict_given and scapy_packet.haslayer(scapy.TCP) and (
                   scapy_packet[scapy.TCP].dport in [80, 443] or scapy_packet[scapy.TCP].sport in [80, 443]):
                 print(f"Allowed HTTP/HTTPS from {src_ip} to {dst_ip}")
                 self.data_manager.add_log(f"Allowed HTTP/HTTPS from {src_ip} to {dst_ip}")
                 packet.accept()
                 verdict_given = True
 
-            else:
-                if src_ip not in self.data_manager.suspicious_count:
-                    self.data_manager.suspicious_count[src_ip] = 0
-                self.data_manager.suspicious_count[src_ip] += 1
+            if not verdict_given:
+                # Quick Reverse DNS Lookup for False Positives
+                is_false_positive = False
+                try:
+                    hostname, _, _ = socket.gethostbyaddr(dst_ip)
+                    trusted_domains = ['.1e100.net', '.google.com', '.microsoft.com', '.apple.com', '.amazonaws.com', '.cloudflare.com', '.ubuntu.com']
+                    if any(hostname.endswith(domain) for domain in trusted_domains):
+                        is_false_positive = True
+                        print(f"False Positive Ignored ({hostname}): {src_ip} -> {dst_ip}")
+                except Exception:
+                    pass
 
-                if self.data_manager.suspicious_count[src_ip] >= self.block_threshold:
-                    print(f"Blocking IP {src_ip} after {self.data_manager.suspicious_count[src_ip]} suspicious connections")
-                    self.data_manager.add_log(f"Blocking IP {src_ip} after {self.data_manager.suspicious_count[src_ip]} suspicious connections")
-                    self.data_manager.add_blocked_ip(src_ip, self.block_duration, target_ip=dst_ip, reason="Suspicious connection threshold exceeded")
-                    packet.drop()
-                else:
-                    print(f"Suspicious connection from {src_ip} to {dst_ip}, count: {self.data_manager.suspicious_count[src_ip]}")
-                    self.data_manager.add_log(f"Suspicious connection from {src_ip} to {dst_ip}, count: {self.data_manager.suspicious_count[src_ip]}")
+                if is_false_positive:
                     packet.accept()
-                verdict_given = True
+                    verdict_given = True
+                else:
+                    if src_ip not in self.data_manager.suspicious_count:
+                        self.data_manager.suspicious_count[src_ip] = 0
+                    self.data_manager.suspicious_count[src_ip] += 1
+
+                    if self.data_manager.suspicious_count[src_ip] >= self.block_threshold:
+                        print(f"Blocking IP {src_ip} after {self.data_manager.suspicious_count[src_ip]} suspicious connections")
+                        self.data_manager.add_log(f"Blocking IP {src_ip} after {self.data_manager.suspicious_count[src_ip]} suspicious connections")
+                        self.data_manager.add_blocked_ip(src_ip, self.block_duration, target_ip=dst_ip, reason="Suspicious connection threshold exceeded")
+                        packet.drop()
+                    else:
+                        print(f"Suspicious connection from {src_ip} to {dst_ip}, count: {self.data_manager.suspicious_count[src_ip]}")
+                        self.data_manager.add_log(f"Suspicious connection from {src_ip} to {dst_ip}, count: {self.data_manager.suspicious_count[src_ip]}")
+                        packet.accept()
+                    verdict_given = True
 
         self.calculate_metrics(start)
 
