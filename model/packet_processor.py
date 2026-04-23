@@ -187,8 +187,21 @@ class PacketProcessor:
             else:
                 src_ip = self.get_source_ip(scapy_packet)
                 dst_ip = self.get_destination_ip(scapy_packet)
+                protocol = "UDP" if scapy_packet.haslayer(scapy.UDP) else ("TCP" if scapy_packet.haslayer(scapy.TCP) else "Other")
+                port = scapy_packet[scapy.UDP].dport if scapy_packet.haslayer(scapy.UDP) else (scapy_packet[scapy.TCP].dport if scapy_packet.haslayer(scapy.TCP) else None)
+                query_name = scapy_packet[scapy.DNSQR].qname.decode('utf-8', errors='ignore') if scapy_packet.haslayer(scapy.DNSQR) else "Unknown"
+                
+                details = {
+                    "src_ip": src_ip,
+                    "dst_ip": dst_ip,
+                    "protocol": protocol,
+                    "dst_port": port,
+                    "query": query_name,
+                    "action": "blocked",
+                    "reason": "Suspicious reverse DNS query (scanner probe)"
+                }
                 print(f"Reverse-DNS query from {src_ip} blocked")
-                self.data_manager.add_log(f"Reverse-DNS query from {src_ip} blocked", category="REVERSE DNS", details={"src_ip": src_ip, "dst_ip": dst_ip, "action": "blocked"})
+                self.data_manager.add_log(f"Reverse-DNS query from {src_ip} blocked", category="REVERSE DNS", details=details)
                 packet.drop()
             verdict_given = True
 
@@ -237,8 +250,10 @@ class PacketProcessor:
                     pass
 
                 if is_vpn:
+                    protocol = "UDP" if scapy_packet.haslayer(scapy.UDP) else ("TCP" if scapy_packet.haslayer(scapy.TCP) else "Other")
+                    port = scapy_packet[scapy.UDP].dport if scapy_packet.haslayer(scapy.UDP) else (scapy_packet[scapy.TCP].dport if scapy_packet.haslayer(scapy.TCP) else None)
                     print(f"VPN Connection Blocked: {src_ip} -> {dst_ip}")
-                    self.data_manager.add_log(f"VPN Blocked: {src_ip} -> {dst_ip}", category="VPN", details={"src_ip": src_ip, "dst_ip": dst_ip, "reason": "VPN subnet matched"})
+                    self.data_manager.add_log(f"VPN Blocked: {src_ip} -> {dst_ip}", category="VPN", details={"src_ip": src_ip, "dst_ip": dst_ip, "protocol": protocol, "dst_port": port, "reason": "VPN subnet matched"})
                     self.data_manager.add_blocked_ip(src_ip, self.block_duration, target_ip=dst_ip, reason="VPN Usage Detected")
                     packet.drop()
                     verdict_given = True
@@ -272,13 +287,17 @@ class PacketProcessor:
                     self.data_manager.suspicious_count[src_ip] += 1
 
                     if self.data_manager.suspicious_count[src_ip] >= self.block_threshold:
+                        protocol = "UDP" if scapy_packet.haslayer(scapy.UDP) else ("TCP" if scapy_packet.haslayer(scapy.TCP) else "Other")
+                        port = scapy_packet[scapy.UDP].dport if scapy_packet.haslayer(scapy.UDP) else (scapy_packet[scapy.TCP].dport if scapy_packet.haslayer(scapy.TCP) else None)
                         print(f"Blocking IP {src_ip} after {self.data_manager.suspicious_count[src_ip]} suspicious connections")
-                        self.data_manager.add_log(f"Blocking IP {src_ip} after {self.data_manager.suspicious_count[src_ip]} suspicious connections", category="BLOCKED", details={"src_ip": src_ip, "dst_ip": dst_ip, "count": self.data_manager.suspicious_count[src_ip]})
+                        self.data_manager.add_log(f"Blocking IP {src_ip} after {self.data_manager.suspicious_count[src_ip]} suspicious connections", category="BLOCKED", details={"src_ip": src_ip, "dst_ip": dst_ip, "protocol": protocol, "dst_port": port, "count": self.data_manager.suspicious_count[src_ip]})
                         self.data_manager.add_blocked_ip(src_ip, self.block_duration, target_ip=dst_ip, reason="Suspicious connection threshold exceeded")
                         packet.drop()
                     else:
+                        protocol = "UDP" if scapy_packet.haslayer(scapy.UDP) else ("TCP" if scapy_packet.haslayer(scapy.TCP) else "Other")
+                        port = scapy_packet[scapy.UDP].dport if scapy_packet.haslayer(scapy.UDP) else (scapy_packet[scapy.TCP].dport if scapy_packet.haslayer(scapy.TCP) else None)
                         print(f"Suspicious connection from {src_ip} to {dst_ip}, count: {self.data_manager.suspicious_count[src_ip]}")
-                        self.data_manager.add_log(f"Suspicious connection from {src_ip} to {dst_ip}, count: {self.data_manager.suspicious_count[src_ip]}", category="SUSPICIOUS", details={"src_ip": src_ip, "dst_ip": dst_ip, "count": self.data_manager.suspicious_count[src_ip]})
+                        self.data_manager.add_log(f"Suspicious connection from {src_ip} to {dst_ip}, count: {self.data_manager.suspicious_count[src_ip]}", category="SUSPICIOUS", details={"src_ip": src_ip, "dst_ip": dst_ip, "protocol": protocol, "dst_port": port, "count": self.data_manager.suspicious_count[src_ip]})
                         packet.accept()
                     verdict_given = True
 
