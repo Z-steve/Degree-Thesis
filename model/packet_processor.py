@@ -187,7 +187,7 @@ class PacketProcessor:
             else:
                 src_ip = self.get_source_ip(scapy_packet)
                 print(f"Reverse-DNS query from {src_ip} blocked")
-                self.data_manager.add_log(f"Reverse-DNS query from {src_ip} blocked")
+                self.data_manager.add_log(f"Reverse-DNS query from {src_ip} blocked", category="REVERSE DNS", details={"src_ip": src_ip, "action": "blocked"})
                 packet.drop()
             verdict_given = True
 
@@ -203,7 +203,7 @@ class PacketProcessor:
 
             if src_ip in self.data_manager.blocked_ips:
                 print(f"Blocked IP {src_ip} to {dst_ip}")
-                self.data_manager.add_log(f"Blocked IP {src_ip} to {dst_ip}")
+                self.data_manager.add_log(f"Blocked IP {src_ip} to {dst_ip}", category="BLOCKED", details={"src_ip": src_ip, "dst_ip": dst_ip, "reason": "Already blocked"})
                 packet.drop()
                 verdict_given = True
 
@@ -237,7 +237,7 @@ class PacketProcessor:
 
                 if is_vpn:
                     print(f"VPN Connection Blocked: {src_ip} -> {dst_ip}")
-                    self.data_manager.add_log(f"VPN Blocked: {src_ip} -> {dst_ip}")
+                    self.data_manager.add_log(f"VPN Blocked: {src_ip} -> {dst_ip}", category="VPN", details={"src_ip": src_ip, "dst_ip": dst_ip, "reason": "VPN subnet matched"})
                     self.data_manager.add_blocked_ip(src_ip, self.block_duration, target_ip=dst_ip, reason="VPN Usage Detected")
                     packet.drop()
                     verdict_given = True
@@ -246,7 +246,7 @@ class PacketProcessor:
             if not verdict_given and scapy_packet.haslayer(scapy.TCP) and (
                   scapy_packet[scapy.TCP].dport in [80, 443] or scapy_packet[scapy.TCP].sport in [80, 443]):
                 print(f"Allowed HTTP/HTTPS from {src_ip} to {dst_ip}")
-                self.data_manager.add_log(f"Allowed HTTP/HTTPS from {src_ip} to {dst_ip}")
+                self.data_manager.add_log(f"Allowed HTTP/HTTPS from {src_ip} to {dst_ip}", category="ALLOWED", details={"src_ip": src_ip, "dst_ip": dst_ip, "protocol": "HTTP/HTTPS"})
                 packet.accept()
                 verdict_given = True
 
@@ -272,12 +272,12 @@ class PacketProcessor:
 
                     if self.data_manager.suspicious_count[src_ip] >= self.block_threshold:
                         print(f"Blocking IP {src_ip} after {self.data_manager.suspicious_count[src_ip]} suspicious connections")
-                        self.data_manager.add_log(f"Blocking IP {src_ip} after {self.data_manager.suspicious_count[src_ip]} suspicious connections")
+                        self.data_manager.add_log(f"Blocking IP {src_ip} after {self.data_manager.suspicious_count[src_ip]} suspicious connections", category="BLOCKED", details={"src_ip": src_ip, "dst_ip": dst_ip, "count": self.data_manager.suspicious_count[src_ip]})
                         self.data_manager.add_blocked_ip(src_ip, self.block_duration, target_ip=dst_ip, reason="Suspicious connection threshold exceeded")
                         packet.drop()
                     else:
                         print(f"Suspicious connection from {src_ip} to {dst_ip}, count: {self.data_manager.suspicious_count[src_ip]}")
-                        self.data_manager.add_log(f"Suspicious connection from {src_ip} to {dst_ip}, count: {self.data_manager.suspicious_count[src_ip]}")
+                        self.data_manager.add_log(f"Suspicious connection from {src_ip} to {dst_ip}, count: {self.data_manager.suspicious_count[src_ip]}", category="SUSPICIOUS", details={"src_ip": src_ip, "dst_ip": dst_ip, "count": self.data_manager.suspicious_count[src_ip]})
                         packet.accept()
                     verdict_given = True
 
@@ -291,5 +291,6 @@ class PacketProcessor:
             self.queue.run()
         except KeyboardInterrupt:
             self.data_manager.save_dns_expiration_table()
-            print("DNS expiration table saved.")
+            self.data_manager.save_logs_and_history()
+            print("DNS expiration table and logs saved.")
             self.running = False

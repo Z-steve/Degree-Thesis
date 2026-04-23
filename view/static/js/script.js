@@ -100,19 +100,79 @@ function updateMetrics() {
         .catch(error => console.error('Error updating metrics:', error));
 }
 
+let lastLogsCount = -1;
+let currentFilter = 'ALL';
+
+document.addEventListener('DOMContentLoaded', () => {
+    const filterDropdown = document.querySelector('#log-category-filter');
+    if (filterDropdown) {
+        filterDropdown.addEventListener('change', (e) => {
+            currentFilter = e.target.value;
+            lastLogsCount = -1; // force refresh
+            updateLogs();
+        });
+    }
+
+    const modal = document.getElementById('log-details-modal');
+    const closeBtn = document.querySelector('.close-modal');
+    if (modal && closeBtn) {
+        closeBtn.onclick = function() { modal.style.display = 'none'; }
+        window.onclick = function(event) { if (event.target == modal) modal.style.display = 'none'; }
+    }
+});
+
+function openDetailsModal(detailsStr) {
+    const modal = document.getElementById('log-details-modal');
+    const content = document.getElementById('log-details-content');
+    if (modal && content) {
+        try {
+            const detailsObj = JSON.parse(decodeURIComponent(detailsStr));
+            content.textContent = JSON.stringify(detailsObj, null, 4);
+        } catch (e) {
+            content.textContent = decodeURIComponent(detailsStr);
+        }
+        modal.style.display = 'block';
+    }
+}
+
 function updateLogs() {
     if (window.location.pathname !== '/logs') return;
+    
+    // Pause auto-refresh if the user is highlighting text!
+    if (window.getSelection().toString().length > 0) return;
+
     fetch('/api/get_logs')
         .then(response => {
             if (!response.ok) throw new Error(`Logs fetch failed: ${response.status}`);
             return response.json();
         })
         .then(data => {
+            // Apply category filter
+            const filteredData = currentFilter === 'ALL' ? data : data.filter(log => log.category === currentFilter);
+
+            // Optimization: only re-render if count or last element changed, to avoid DOM flickering
+            if (filteredData.length === lastLogsCount && lastLogsCount > 0) {
+                // Not a perfect diff, but good enough for append-only logs
+                return;
+            }
+            lastLogsCount = filteredData.length;
+
             const tbody = document.querySelector('#logs-table tbody');
             if (tbody) {
                 tbody.innerHTML = '';
-                data.forEach(log => {
-                    const row = `<tr><td>${formatDate(log.timestamp)}</td><td>${log.message}</td></tr>`;
+                filteredData.forEach(log => {
+                    const category = log.category || 'SYSTEM';
+                    const catClass = category === 'VPN' ? 'attacker-alert' : (category === 'BLOCKED' ? 'attacker-alert' : '');
+                    
+                    const detailsStr = encodeURIComponent(JSON.stringify(log.details || {}));
+                    const actionBtn = `<button onclick="openDetailsModal('${detailsStr}')" style="background:#00ADB5; color:white; border:none; padding:4px 8px; border-radius:3px; cursor:pointer; font-size:12px;">More Info</button>`;
+
+                    const row = `<tr>
+                        <td>${formatDate(log.timestamp)}</td>
+                        <td class="${catClass}" style="font-weight: bold;">${category}</td>
+                        <td>${log.message}</td>
+                        <td>${actionBtn}</td>
+                    </tr>`;
                     tbody.innerHTML += row;
                 });
                 // Scroll to bottom

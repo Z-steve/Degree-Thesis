@@ -31,19 +31,46 @@
         
         <div class="dashboard-grid">
             <div class="card" style="grid-column: 1 / -1;">
-                <h3>Event & Alert Logs</h3>
-                <p>Real-time stream of system events, detection alerts, and blocked connection attempts.</p>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <div>
+                        <h3>Event & Alert Logs</h3>
+                        <p>Real-time stream of system events, detection alerts, and blocked connection attempts.</p>
+                    </div>
+                    <div>
+                        <label for="log-category-filter" style="margin-right: 10px; font-weight: 500;">Filter Category:</label>
+                        <select id="log-category-filter" style="padding: 0.5rem; border-radius: 4px; background: #2A2F3A; color: white; border: 1px solid #444;">
+                            <option value="ALL">All Categories</option>
+                            <option value="SYSTEM">System</option>
+                            <option value="VPN">VPN</option>
+                            <option value="BLOCKED">Blocked</option>
+                            <option value="REVERSE DNS">Reverse DNS</option>
+                            <option value="SUSPICIOUS">Suspicious</option>
+                            <option value="ALLOWED">Allowed</option>
+                        </select>
+                    </div>
+                </div>
                 <div class="table-container">
                     <table id="logs-table">
                         <thead>
                             <tr>
                                 <th style="width: 200px;">Timestamp</th>
+                                <th style="width: 150px;">Category</th>
                                 <th>Message</th>
+                                <th style="width: 100px;">Action</th>
                             </tr>
                         </thead>
                         <tbody></tbody>
                     </table>
                 </div>
+            </div>
+        </div>
+
+        <!-- Details Modal -->
+        <div id="log-details-modal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
+            <div class="modal-content card" style="margin: 10% auto; width: 50%; padding: 2rem; position: relative;">
+                <span class="close-modal" style="position: absolute; right: 20px; top: 20px; font-size: 24px; cursor: pointer;">&times;</span>
+                <h2>Log Details</h2>
+                <div id="log-details-content" style="margin-top: 20px; background: #1E232B; padding: 15px; border-radius: 8px; font-family: monospace; white-space: pre-wrap;"></div>
             </div>
         </div>
     </main>

@@ -1,6 +1,7 @@
 import pickle
 import os
 import time
+import json
 
 class DataManager:
     def __init__(self, dns_expiration_file="dns_expiration_table.pkl"):
@@ -22,9 +23,34 @@ class DataManager:
         self.logs = []
         self.attack_history = []
         self.dns_expiration_file = dns_expiration_file
+        self.logs_file = "system_logs.json"
+        self.attack_history_file = "attack_history.json"
         self.load_dns_expiration_table()
+        self.load_logs_and_history()
 
+    def load_logs_and_history(self):
+        if os.path.exists(self.logs_file):
+            try:
+                with open(self.logs_file, 'r') as f:
+                    self.logs = json.load(f)
+            except Exception:
+                self.logs = []
+        if os.path.exists(self.attack_history_file):
+            try:
+                with open(self.attack_history_file, 'r') as f:
+                    self.attack_history = json.load(f)
+            except Exception:
+                self.attack_history = []
 
+    def save_logs_and_history(self):
+        try:
+            with open(self.logs_file, 'w') as f:
+                json.dump(self.logs, f)
+            with open(self.attack_history_file, 'w') as f:
+                json.dump(self.attack_history, f)
+            print("Saved logs and attack history to disk.")
+        except Exception as e:
+            print(f"Failed to save logs to disk: {e}")
     def save_dns_expiration_table(self):
         try:
             with open(self.dns_expiration_file, 'wb') as f:
@@ -47,7 +73,7 @@ class DataManager:
     def add_blocked_ip(self, ip, block_duration=1000, target_ip="Unknown", reason="Manual block"):
         from controller.app import scanner  # Import here to avoid circular import
         self.blocked_ips[ip] = time.time() + block_duration
-        self.add_log(f"Blocked IP {ip} until {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(self.blocked_ips[ip]))}")
+        self.add_log(f"Blocked IP {ip} until {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(self.blocked_ips[ip]))}", category="SYSTEM", details={"action": "blocked", "ip": ip, "reason": reason})
         
         self.attack_history.insert(0, {
             "timestamp": time.time(),
@@ -70,33 +96,35 @@ class DataManager:
             if ip in self.suspicious_count:
                 self.suspicious_count[ip] = 0
                 
-            self.add_log(f"Unblocked IP {ip}")
+            self.add_log(f"Unblocked IP {ip}", category="SYSTEM", details={"action": "unblocked", "ip": ip})
             if scanner:
                 scanner.update_attacker_status(ip)
 
     def add_allowlisted_user(self, ip):
         if ip not in self.allowlisted_users:
             self.allowlisted_users.append(ip)
-            self.add_log(f"Added allowlisted user: {ip}")
+            self.add_log(f"Added allowlisted user: {ip}", category="SYSTEM")
 
     def remove_allowlisted_user(self, ip):
         if ip in self.allowlisted_users:
             self.allowlisted_users.remove(ip)
-            self.add_log(f"Removed allowlisted user: {ip}")
+            self.add_log(f"Removed allowlisted user: {ip}", category="SYSTEM")
 
     def add_allowlisted_domain(self, domain):
         if domain not in self.allowlisted_domains:
             self.allowlisted_domains.append(domain)
-            self.add_log(f"Added allowlisted domain: {domain}")
+            self.add_log(f"Added allowlisted domain: {domain}", category="SYSTEM")
 
     def remove_allowlisted_domain(self, domain):
         if domain in self.allowlisted_domains:
             self.allowlisted_domains.remove(domain)
-            self.add_log(f"Removed allowlisted domain: {domain}")
+            self.add_log(f"Removed allowlisted domain: {domain}", category="SYSTEM")
 
-    def add_log(self, message):
+    def add_log(self, message, category="INFO", details=None):
         self.logs.append({
             "timestamp": time.time(),
-            "message": message
+            "category": category,
+            "message": message,
+            "details": details or {}
         })
         self.logs = self.logs[-1000:]
