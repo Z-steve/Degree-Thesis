@@ -2,6 +2,9 @@ import threading
 import time
 import scapy.all as scapy
 import logging
+import ipaddress
+import psutil
+import socket
 
 class NetworkDevice:
     def __init__(self, ip, mac):
@@ -19,20 +22,47 @@ class NetworkDevice:
         }
 
 class NetworkScanner:
-    def __init__(self, subnet="192.168.100.0/24", detector_ip="192.168.100.10", iface="enp0s3"):
-        self.subnet = subnet
-        self.detector_ip = detector_ip
-        self.iface = iface
+    def __init__(self, subnet=None, detector_ip=None, iface=None):
+        self.iface = iface or self._auto_select_interface()
+        iface_ip, iface_netmask = self._get_iface_ipv4_config(self.iface)
+
+        if subnet:
+            self.subnet = subnet
+        elif iface_ip and iface_netmask:
+            network = ipaddress.IPv4Network(f"{iface_ip}/{iface_netmask}", strict=False)
+            self.subnet = str(network)
+        else:
+            self.subnet = "192.168.100.0/24"
+
+        self.detector_ip = detector_ip or iface_ip or "192.168.100.10"
         logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
         self.logger = logging.getLogger(__name__)
         self.detector_mac = self.get_detector_mac()
         self.devices = {}
-        self.devices[detector_ip] = NetworkDevice(detector_ip, self.detector_mac)
-        self.devices[detector_ip].is_gateway = True
-        self.logger.debug(f"Initialized devices with detector: {detector_ip}")
+        self.devices[self.detector_ip] = NetworkDevice(self.detector_ip, self.detector_mac)
+        self.devices[self.detector_ip].is_gateway = True
+        self.logger.debug(
+            f"Initialized scanner iface={self.iface}, subnet={self.subnet}, detector={self.detector_ip}"
+        )
         self.scan_running = False
         self.scan_thread = None
         self.lock = threading.Lock()
+
+    def _auto_select_interface(self):
+        for iface_name, addrs in psutil.net_if_addrs().items():
+            if iface_name.startswith("lo"):
+                continue
+            for addr in addrs:
+                if addr.family == socket.AF_INET and addr.address and addr.netmask:
+                    return iface_name
+        return "enp0s3"
+
+    def _get_iface_ipv4_config(self, iface_name):
+        addrs = psutil.net_if_addrs().get(iface_name, [])
+        for addr in addrs:
+            if addr.family == socket.AF_INET and addr.address and addr.netmask:
+                return addr.address, addr.netmask
+        return None, None
 
     def get_detector_mac(self):
         try:
