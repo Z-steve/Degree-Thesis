@@ -186,8 +186,9 @@ class PacketProcessor:
                 packet.accept()
             else:
                 src_ip = self.get_source_ip(scapy_packet)
+                dst_ip = self.get_destination_ip(scapy_packet)
                 print(f"Reverse-DNS query from {src_ip} blocked")
-                self.data_manager.add_log(f"Reverse-DNS query from {src_ip} blocked", category="REVERSE DNS", details={"src_ip": src_ip, "action": "blocked"})
+                self.data_manager.add_log(f"Reverse-DNS query from {src_ip} blocked", category="REVERSE DNS", details={"src_ip": src_ip, "dst_ip": dst_ip, "action": "blocked"})
                 packet.drop()
             verdict_given = True
 
