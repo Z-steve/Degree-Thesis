@@ -32,9 +32,10 @@ def create_signal_handler(data_manager_instance):
                 print(f"Attempting to save DNS expiration table to {data_manager_instance.dns_expiration_file}")
                 print(f"DNS expiration table contents: {data_manager_instance.dns_expiration_table}")
                 data_manager_instance.save_dns_expiration_table()
-                print("DNS expiration table saved.")
+                data_manager_instance.save_logs_and_history()
+                print("DNS expiration table and logs saved.")
             except Exception as e:
-                print(f"Error saving DNS expiration table: {e}")
+                print(f"Error saving data: {e}")
         restore_iptables()
         sys.exit(0)
     return signal_handler
