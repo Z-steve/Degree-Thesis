@@ -65,6 +65,11 @@ class DataManager:
         from controller.app import scanner  # Import here to avoid circular import
         if ip in self.blocked_ips:
             del self.blocked_ips[ip]
+            
+            # CRITICAL FIX: Reset the suspicious count so the user doesn't get instantly re-banned!
+            if ip in self.suspicious_count:
+                self.suspicious_count[ip] = 0
+                
             self.add_log(f"Unblocked IP {ip}")
             if scanner:
                 scanner.update_attacker_status(ip)
